@@ -1,0 +1,24 @@
+# Copy this file to config.yaml and edit as needed. config.yaml is gitignored.
+# Structured/non-secret settings. Secrets (MQTT_PASSWORD etc.) belong in .env instead.
+
+# MQTT client ID announced to the broker. Defaults to "aprs-web-backend" if omitted.
+# If you ever run more than one instance of this backend against the same broker,
+# append a hostname or PID suffix here (e.g. "aprs-web-backend-myhost") -- MQTT brokers
+# disconnect whichever client connects second when two clients share the same client ID.
+MQTT_CLIENT_ID: aprs-web-backend
+
+# Default REST history lookback window in hours, used when a client omits ?hours=
+HISTORY_LOOKBACK_HOURS: 24
+
+# Path to the SQLite database file
+DB_PATH: ./data/aprs.db
+
+# Logging level: DEBUG, INFO, WARNING, ERROR, or CRITICAL
+LOG_LEVEL: INFO
+
+# uvicorn bind address/port
+HTTP_HOST: 0.0.0.0
+HTTP_PORT: 8000
+
+# MQTT_TOPIC_PREFIX may also be set here instead of .env (it is required either way)
+# MQTT_TOPIC_PREFIX: aprs

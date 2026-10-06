@@ -1,0 +1,15 @@
+[Unit]
+Description=LoRa APRS Live Map backend (FastAPI + MQTT ingestion)
+After=network.target mosquitto.service
+
+[Service]
+Type=simple
+User=aprsweb
+WorkingDirectory=/opt/aprs-web
+EnvironmentFile=/opt/aprs-web/.env
+ExecStart=/opt/aprs-web/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
