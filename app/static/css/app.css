@@ -5,24 +5,133 @@ html, body {
   font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
-#app {
+/* ---- Branding header (fixed, full width) ------------------------------- */
+#header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: #333;
+  color: #fff;
   display: flex;
-  height: 100vh;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  box-sizing: border-box;
+  z-index: 1100;
+}
+
+.header-brand {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.header-source {
+  color: #cfe3ff;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+.header-source:hover {
+  text-decoration: underline;
+}
+
+/* ---- Layout: map on the left, sidebar on the right (below header) ------ */
+#app {
+  position: absolute;
+  top: 40px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+#map {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 300px;
 }
 
 #sidebar {
-  width: 280px;
-  flex-shrink: 0;
-  background: #1e2430;
-  color: #e6e6e6;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 300px;
+  background: #f8f8f8;
+  color: #1e2430;
+  border-left: 1px solid #ddd;
   padding: 12px;
   overflow-y: auto;
   box-sizing: border-box;
 }
 
-#sidebar h1 {
-  font-size: 1.1rem;
-  margin: 0 0 12px;
+/* ---- Sidebar sections -------------------------------------------------- */
+.sidebar-section {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e3e3e3;
+}
+
+.sidebar-section:last-child {
+  border-bottom: none;
+}
+
+.sidebar-label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+}
+
+.sidebar-search-row {
+  display: flex;
+  gap: 6px;
+}
+
+#callsign-search {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  background: #fff;
+  color: #1e2430;
+}
+
+#callsign-search-btn {
+  padding: 6px 12px;
+  border: 1px solid #2a7de1;
+  border-radius: 4px;
+  background: #2a7de1;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+
+#callsign-search-btn:hover {
+  background: #1a5fb4;
+}
+
+.sidebar-search-msg {
+  font-size: 0.78rem;
+  color: #b00020;
+  margin-top: 4px;
+  min-height: 1em;
+}
+
+#time-range {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  background: #fff;
+  color: #1e2430;
+  font: inherit;
 }
 
 #station-filter {
@@ -30,10 +139,10 @@ html, body {
   box-sizing: border-box;
   padding: 6px 8px;
   margin-bottom: 10px;
-  border: 1px solid #444;
+  border: 1px solid #bbb;
   border-radius: 4px;
-  background: #2a3140;
-  color: #e6e6e6;
+  background: #fff;
+  color: #1e2430;
 }
 
 #station-list {
@@ -44,11 +153,16 @@ html, body {
 
 #station-list li {
   padding: 8px 6px;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid #e3e3e3;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 8px;
+  cursor: pointer;
+}
+
+#station-list li:hover {
+  background: #eef3fb;
 }
 
 #station-list li .callsign {
@@ -57,7 +171,7 @@ html, body {
 
 #station-list li .last-heard {
   font-size: 0.75rem;
-  color: #9aa3b2;
+  color: #6a7382;
 }
 
 #station-list li label {
@@ -69,15 +183,46 @@ html, body {
 }
 
 #station-list .empty-row {
-  color: #9aa3b2;
+  color: #6a7382;
   font-style: italic;
   padding: 8px 6px;
+  cursor: default;
 }
 
-#map {
-  flex: 1;
+#station-list .empty-row:hover {
+  background: transparent;
 }
 
+/* ---- Links section ----------------------------------------------------- */
+.sidebar-links .sidebar-link {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.88rem;
+}
+
+a.sidebar-link {
+  color: #1a5fb4;
+  text-decoration: none;
+}
+
+a.sidebar-link:hover {
+  text-decoration: underline;
+}
+
+.sidebar-link-disabled,
+a.sidebar-link.sidebar-link-disabled {
+  color: #9aa3b2;
+  cursor: default;
+  pointer-events: none;
+  text-decoration: none;
+}
+
+.coming-soon {
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+/* ---- Popups / markers (unchanged) -------------------------------------- */
 .popup-telemetry-row {
   display: flex;
   justify-content: space-between;
@@ -110,6 +255,11 @@ html, body {
 
 .popup-section-title {
   font-weight: 600;
+}
+
+.popup-weather-link {
+  display: inline-block;
+  margin-top: 2px;
 }
 
 .popup-raw-packet {

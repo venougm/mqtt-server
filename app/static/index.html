@@ -3,25 +3,70 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LoRa APRS Live Map</title>
+  <title>YG2UFH MQTT APRS — Live Map</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossorigin="" />
-  <link rel="stylesheet" href="css/app.css?v=2" />
+  <link rel="stylesheet" href="css/app.css?v=3" />
 </head>
 <body>
+  <header id="header">
+    <span class="header-brand">YG2UFH MQTT APRS</span>
+    <a class="header-source" href="https://github.com/venougm/mqtt-server" target="_blank" rel="noopener">&#9733; Source</a>
+  </header>
+
   <div id="app">
-    <aside id="sidebar">
-      <h1>APRS Live Map</h1>
-      <input id="station-filter" type="text" placeholder="Filter by callsign..." />
-      <ul id="station-list"></ul>
-    </aside>
     <main id="map"></main>
+    <aside id="sidebar">
+      <!-- Search callsign -->
+      <div class="sidebar-section">
+        <label class="sidebar-label" for="callsign-search">Track callsign:</label>
+        <div class="sidebar-search-row">
+          <input id="callsign-search" type="text" placeholder="e.g. YG2UFH-10" />
+          <button id="callsign-search-btn" type="button">Search</button>
+        </div>
+        <div id="callsign-search-msg" class="sidebar-search-msg" aria-live="polite"></div>
+      </div>
+
+      <!-- Time range filter -->
+      <div class="sidebar-section">
+        <label class="sidebar-label" for="time-range">Show last:</label>
+        <select id="time-range">
+          <option value="0" selected>All</option>
+          <option value="15">15 min</option>
+          <option value="30">30 min</option>
+          <option value="60">1 h</option>
+          <option value="180">3 h</option>
+          <option value="360">6 h</option>
+          <option value="720">12 h</option>
+          <option value="1440">24 h</option>
+          <option value="2880">2 d</option>
+          <option value="4320">3 d</option>
+          <option value="10080">7 d</option>
+        </select>
+      </div>
+
+      <!-- Station list -->
+      <div class="sidebar-section">
+        <label class="sidebar-label" for="station-filter">Filter stations:</label>
+        <input id="station-filter" type="text" placeholder="Filter by callsign..." />
+        <ul id="station-list"></ul>
+      </div>
+
+      <!-- Links / other views -->
+      <div class="sidebar-section sidebar-links">
+        <div class="sidebar-label">Other views:</div>
+        <a id="link-weather" class="sidebar-link sidebar-link-disabled" href="#">Weather charts</a>
+        <span class="sidebar-link sidebar-link-disabled">Info <span class="coming-soon">(coming soon)</span></span>
+        <span class="sidebar-link sidebar-link-disabled">Telemetry <span class="coming-soon">(coming soon)</span></span>
+        <span class="sidebar-link sidebar-link-disabled">Raw packets <span class="coming-soon">(coming soon)</span></span>
+      </div>
+    </aside>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
           crossorigin=""></script>
-  <script src="js/app.js?v=2"></script>
+  <script src="js/app.js?v=3"></script>
 </body>
 </html>

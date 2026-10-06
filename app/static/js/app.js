@@ -3,7 +3,7 @@
   "use strict";
 
   // ---- Map init -----------------------------------------------------------
-  var map = L.map("map").setView([-2.5, 118], 5); // fallback center: Indonesia
+  var map = L.map("map").setView([-7.70776, 110.41006], 10); // YG2UFH-10 iGate, Yogyakarta
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
@@ -13,35 +13,25 @@
   // state: Map<callsign, {marker, polyline, visible, lastData}>
   var stations = new Map();
   var mapCentered = false;
+  var focusedCallsign = null; // currently searched/focused callsign
 
   // ---- Symbol icon lookup (minimal, generic fallback for unknown pairs) ---
-  // symbol is a 2-char string: table char + code char (table char first, per
-  // "Symbol handling" in design.md). No bundled icon image set in v1 -- known
-  // (table, code) pairs map to a small built-in set of distinguishable
-  // divIcon glyphs/colors; any pair not in this table falls back to the
-  // generic colored dot. Covers the symbols most relevant to LoRa
-  // APRS/iGate deployments (mobile trackers, fixed stations, digipeaters,
-  // weather, balloons); not an exhaustive APRS symbol table.
   var ICON_TABLE = {
-    "/>": { glyph: "\uD83D\uDE97", color: "#2a7de1" }, // car
-    "/-": { glyph: "\uD83C\uDFE0", color: "#2a7de1" }, // house (fixed station)
-    "/j": { glyph: "\uD83D\uDE99", color: "#2a7de1" }, // jeep
-    "/k": { glyph: "\uD83D\uDE9A", color: "#2a7de1" }, // truck
-    "/b": { glyph: "\uD83D\uDEB2", color: "#2a7de1" }, // bike
-    "/_": { glyph: "\u26C5", color: "#f0a500" }, // weather station
-    "/O": { glyph: "\uD83C\uDF88", color: "#f0a500" }, // balloon
-    "/#": { glyph: "\uD83D\uDCE1", color: "#8a2be2" }, // digipeater
-    "/r": { glyph: "\uD83D\uDCE1", color: "#8a2be2" }, // repeater
-    "/[": { glyph: "\uD83D\uDEB6", color: "#2a7de1" }, // person
-    "/Y": { glyph: "\u26F5", color: "#2a7de1" }, // yacht/boat
-    "\\_": { glyph: "\u26C5", color: "#1e6fd9" }, // weather station (alt table)
-    // Overlay symbols: table char is the overlay (0-9/A-Z) drawn on top of
-    // the alternate-table symbol, rendered like aprs.fi as the overlay
-    // letter on a colored circle.
-    "L_": { overlay: "L", color: "#1e6fd9" }, // LoRa iGate weather station
+    "/>": { glyph: "\uD83D\uDE97", color: "#2a7de1" },
+    "/-": { glyph: "\uD83C\uDFE0", color: "#2a7de1" },
+    "/j": { glyph: "\uD83D\uDE99", color: "#2a7de1" },
+    "/k": { glyph: "\uD83D\uDE9A", color: "#2a7de1" },
+    "/b": { glyph: "\uD83D\uDEB2", color: "#2a7de1" },
+    "/_": { glyph: "\u26C5", color: "#f0a500" },
+    "/O": { glyph: "\uD83C\uDF88", color: "#f0a500" },
+    "/#": { glyph: "\uD83D\uDCE1", color: "#8a2be2" },
+    "/r": { glyph: "\uD83D\uDCE1", color: "#8a2be2" },
+    "/[": { glyph: "\uD83D\uDEB6", color: "#2a7de1" },
+    "/Y": { glyph: "\u26F5", color: "#2a7de1" },
+    "\\_": { glyph: "\u26C5", color: "#1e6fd9" },
+    "L_": { overlay: "L", color: "#1e6fd9" },
   };
   var FALLBACK_ICON = { glyph: null, color: "#2a7de1" };
-  // Circle color for generic overlay symbols, keyed by the base symbol code.
   var OVERLAY_COLORS = { "_": "#1e6fd9", "&": "#2a2a2a", "#": "#8a2be2" };
 
   function overlayIconDef(symbol) {
@@ -52,7 +42,6 @@
   function iconFor(symbol) {
     var def = (symbol && ICON_TABLE[symbol]) || overlayIconDef(symbol) || FALLBACK_ICON;
     if (def.overlay) {
-      // Built via DOM + textContent so the overlay char is never parsed as HTML.
       var el = document.createElement("div");
       el.className = "aprs-overlay-icon";
       el.style.background = def.color;
@@ -97,8 +86,6 @@
   }
 
   // ---- Weather rendering ----------------------------------------------------
-  // aprslib already converts weather to metric (°C, mbar, m/s, mm). Known keys
-  // get a label/unit/precision; unknown keys fall back to "key: value".
   var WEATHER_FIELDS = [
     { key: "temperature", label: "Temperature", unit: "\u00b0C", digits: 1 },
     { key: "humidity", label: "Humidity", unit: "%", digits: 0 },
@@ -116,7 +103,7 @@
     return typeof value === "number" ? value.toFixed(digits) : String(value);
   }
 
-  function buildWeatherSection(weather) {
+  function buildWeatherSection(weather, callsign) {
     var section = document.createElement("div");
     section.className = "popup-weather";
 
@@ -142,6 +129,12 @@
     var line = document.createElement("div");
     line.textContent = parts.length > 0 ? parts.join(" \u00b7 ") : "\u2014";
     section.appendChild(line);
+
+    var link = document.createElement("a");
+    link.className = "popup-weather-link";
+    link.href = "/weather/a/" + encodeURIComponent(callsign);
+    link.textContent = "Show weather charts";
+    section.appendChild(link);
     return section;
   }
 
@@ -188,7 +181,7 @@
     }
 
     if (data.weather) {
-      container.appendChild(buildWeatherSection(data.weather));
+      container.appendChild(buildWeatherSection(data.weather, data.callsign));
     }
 
     var telemetryDiv = document.createElement("div");
@@ -215,6 +208,37 @@
     return container;
   }
 
+  // ---- Time-range filter ------------------------------------------------
+  function getTimeRangeMinutes() {
+    var sel = document.getElementById("time-range");
+    return sel ? parseInt(sel.value, 10) : 0;
+  }
+
+  function isStationInTimeRange(entry) {
+    var minutes = getTimeRangeMinutes();
+    if (minutes === 0) return true; // "All" — no filtering
+    if (!entry.lastData || !entry.lastData.received_at) return false;
+    var receivedTime = new Date(entry.lastData.received_at).getTime();
+    var cutoff = Date.now() - minutes * 60 * 1000;
+    return receivedTime >= cutoff;
+  }
+
+  function applyTimeRangeFilter() {
+    stations.forEach(function (entry) {
+      if (!entry.marker) return;
+      if (isStationInTimeRange(entry)) {
+        if (!map.hasLayer(entry.marker)) {
+          entry.marker.addTo(map);
+        }
+      } else {
+        if (map.hasLayer(entry.marker)) {
+          map.removeLayer(entry.marker);
+        }
+      }
+    });
+    renderSidebar();
+  }
+
   // ---- Marker / station state management --------------------------------
   function upsertStation(data) {
     var entry = stations.get(data.callsign);
@@ -227,7 +251,11 @@
     if (data.latitude !== null && data.longitude !== null && data.latitude !== undefined && data.longitude !== undefined) {
       var latlng = [data.latitude, data.longitude];
       if (!entry.marker) {
-        entry.marker = L.marker(latlng, { icon: iconFor(data.symbol) }).addTo(map);
+        entry.marker = L.marker(latlng, { icon: iconFor(data.symbol) });
+        // Only add to map if it passes the time range filter
+        if (isStationInTimeRange(entry)) {
+          entry.marker.addTo(map);
+        }
       } else {
         entry.marker.setLatLng(latlng);
       }
@@ -268,7 +296,22 @@
       .then(function (res) { return res.json(); });
   }
 
-  // ---- Sidebar ------------------------------------------------------------
+  // ---- Sidebar: weather link helper -------------------------------------
+  function updateWeatherLink() {
+    var linkEl = document.getElementById("link-weather");
+    if (!linkEl) return;
+    if (focusedCallsign && stations.has(focusedCallsign)) {
+      linkEl.href = "/weather/a/" + encodeURIComponent(focusedCallsign);
+      linkEl.classList.remove("sidebar-link-disabled");
+      linkEl.textContent = "Weather charts — " + focusedCallsign;
+    } else {
+      linkEl.href = "#";
+      linkEl.classList.add("sidebar-link-disabled");
+      linkEl.textContent = "Weather charts";
+    }
+  }
+
+  // ---- Sidebar: station list --------------------------------------------
   function renderSidebar() {
     var filterValue = document.getElementById("station-filter").value.trim().toLowerCase();
     var list = document.getElementById("station-list");
@@ -276,12 +319,15 @@
 
     var callsigns = Array.from(stations.keys()).sort();
     var visibleCount = 0;
+    var rangeMinutes = getTimeRangeMinutes();
 
     callsigns.forEach(function (callsign) {
       if (filterValue && callsign.toLowerCase().indexOf(filterValue) === -1) return;
+      var entry = stations.get(callsign);
+      // Respect time range filter in the list too
+      if (rangeMinutes > 0 && !isStationInTimeRange(entry)) return;
       visibleCount++;
 
-      var entry = stations.get(callsign);
       var li = document.createElement("li");
 
       var left = document.createElement("div");
@@ -314,6 +360,8 @@
         if (entry.marker) {
           map.setView(entry.marker.getLatLng(), map.getZoom());
           entry.marker.openPopup();
+          focusedCallsign = callsign;
+          updateWeatherLink();
         }
       });
 
@@ -330,12 +378,48 @@
 
   document.getElementById("station-filter").addEventListener("input", renderSidebar);
 
+  // ---- Time-range change handler ----------------------------------------
+  document.getElementById("time-range").addEventListener("change", applyTimeRangeFilter);
+
+  // ---- Search callsign --------------------------------------------------
+  function doCallsignSearch() {
+    var input = document.getElementById("callsign-search");
+    var msgEl = document.getElementById("callsign-search-msg");
+    var query = input.value.trim().toUpperCase();
+    msgEl.textContent = "";
+
+    if (!query) return;
+
+    // Look for an exact match first, then try a prefix/substring match
+    var entry = stations.get(query);
+    if (!entry) {
+      stations.forEach(function (e, key) {
+        if (!entry && key.toUpperCase().indexOf(query) !== -1) {
+          entry = e;
+          query = key; // use the actual key for focusing
+        }
+      });
+    }
+
+    if (entry && entry.marker) {
+      map.setView(entry.marker.getLatLng(), 13);
+      entry.marker.openPopup();
+      focusedCallsign = query;
+      updateWeatherLink();
+    } else {
+      msgEl.textContent = "Callsign not found in loaded stations.";
+    }
+  }
+
+  document.getElementById("callsign-search-btn").addEventListener("click", doCallsignSearch);
+  document.getElementById("callsign-search").addEventListener("keydown", function (evt) {
+    if (evt.key === "Enter") {
+      evt.preventDefault();
+      doCallsignSearch();
+    }
+  });
+
   // ---- WebSocket lifecycle -------------------------------------------------
-  // Exact sequence: open WS first -> buffer messages until the initial
-  // GET /api/stations resolves -> apply REST snapshot -> flush buffer in
-  // order -> switch to immediate live updates. On every reconnect (not just
-  // the first), re-run this whole sequence so an outage longer than the
-  // backoff window cannot leave stale data with no recovery path.
   var ws = null;
   var buffering = true;
   var messageBuffer = [];
@@ -351,8 +435,6 @@
     if (payload.type === "position") {
       upsertStation(payload);
     }
-    // Future message types (e.g. "station_removed") can be added here
-    // without a breaking contract change.
   }
 
   function connect() {
@@ -371,7 +453,7 @@
     });
 
     ws.addEventListener("open", function () {
-      backoffMs = 1000; // reset backoff on a successful connection
+      backoffMs = 1000;
       fetch("/api/stations")
         .then(function (res) { return res.json(); })
         .then(function (initialStations) {

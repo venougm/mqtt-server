@@ -51,6 +51,44 @@ lookback window, log level, bind host/port, MQTT client ID).
 
 Open `http://localhost:8000/` in a browser.
 
+## Weather charts
+
+Each weather station has an aprs.fi-style charts page at
+`/weather/a/<callsign>` (e.g. `http://localhost:8000/weather/a/YG2UFH-10`),
+linked from the "Show weather charts" link in the map popup. It shows current
+conditions, min/max/latest per field, and line charts (temperature, humidity,
+pressure, wind, rain, luminosity -- only fields the station reports) for the
+last 24 h / 48 h / 7 d / 30 d, and appends new reports live. Chart.js 4.4.1 is
+loaded from the jsDelivr CDN. The data comes from
+`GET /api/stations/{callsign}/weather?hours=N` (1-720, default 48).
+
+### Importing history from aprs.fi
+
+Charts only cover packets this server has received. To backfill your own
+station's earlier reports, open its raw-packets page on aprs.fi in a browser,
+copy the lines into a text file (one per line, as shown there), e.g.
+
+```
+2026-10-06 04:24:10 WIB: YG2UFH-10>APLRG1,TCPIP*,qAC,T2CSNGRAD:=LRDS_jEH8_ !G.../...g...t082h63b09855IGate LilyGo TBeam Lora
+```
+
+and run, from the project root:
+
+```powershell
+.venv\Scripts\python.exe tools\import_aprsfi_raw.py packets.txt
+# or from stdin:
+Get-Content packets.txt | .venv\Scripts\python.exe tools\import_aprsfi_raw.py
+```
+
+The leading timestamp is the packet's receive time (timezones WIB, WITA, WIT,
+UTC/GMT/Z; other abbreviations are rejected). Packets go into the database set
+by `DB_PATH` in your config, through the same parser as live MQTT packets.
+Re-importing the same lines skips exact duplicates, and older packets never
+replace a station's latest position on the map. Blank lines and lines starting
+with `#` are ignored. The tool prints imported / duplicates skipped / parse
+failures and exits with code 1 if any line failed. It never downloads anything
+from aprs.fi; copy the lines by hand.
+
 ## Running tests
 
 ```powershell
@@ -80,8 +118,8 @@ those steps are documentation only and are not executed by this build.
 - Telemetry for a station with no `EQNS`/`UNIT`/`PARM` config received yet is
   shown as unlabeled raw values until a config message arrives (no
   retroactive relabeling of already-stored packets).
-- Weather is shown only for a station's latest packet; there is no weather
-  history chart. Only a small set of APRS symbols have dedicated icons
+- Weather charts only cover packets stored locally (live or imported with
+  `tools/import_aprsfi_raw.py`). Only a small set of APRS symbols have dedicated icons
   (overlay symbols such as `L_` render as the overlay letter on a circle).
 - A station's track polyline reflects the lookback window at toggle time, not
   continuously refreshed.

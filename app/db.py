@@ -118,14 +118,50 @@ def _ensure_initialized() -> sqlite3.Connection:
     return _conn
 
 
-def store_packet(parsed: dict[str, Any]) -> str:
+# Live ingestion: every packet is the newest one heard, so it always becomes
+# the station's latest.
+_UPSERT_STATION_LIVE = """
+    INSERT INTO stations (callsign, first_heard_at, last_heard_at, last_packet_id)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(callsign) DO UPDATE SET
+        last_heard_at = excluded.last_heard_at,
+        last_packet_id = excluded.last_packet_id
+"""
+
+# Backfill with an explicit historical `received_at`: the packet may be older
+# than what is already stored, so `last_heard_at`/`last_packet_id` only move
+# forward and `first_heard_at` keeps the older of the two. SQLite evaluates
+# every SET expression against the pre-update row, so the CASE conditions all
+# compare against the old `last_heard_at`.
+_UPSERT_STATION_BACKFILL = """
+    INSERT INTO stations (callsign, first_heard_at, last_heard_at, last_packet_id)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(callsign) DO UPDATE SET
+        first_heard_at = MIN(stations.first_heard_at, excluded.first_heard_at),
+        last_packet_id = CASE WHEN excluded.last_heard_at > stations.last_heard_at
+                              THEN excluded.last_packet_id ELSE stations.last_packet_id END,
+        last_heard_at = CASE WHEN excluded.last_heard_at > stations.last_heard_at
+                             THEN excluded.last_heard_at ELSE stations.last_heard_at END
+"""
+
+
+def store_packet(parsed: dict[str, Any], received_at: str | None = None) -> str:
     """Insert one `packets` row and upsert the `stations` row for its callsign,
     inside a single transaction. Returns the server-receipt `received_at`
     timestamp (ISO 8601 UTC, full microsecond precision) used for the row, so
     callers (e.g. the WebSocket broadcast) can report the exact same timestamp
-    without a second query."""
+    without a second query.
+
+    `received_at` defaults to now (live ingestion). Passing an explicit
+    historical timestamp (backfill, see tools/import_aprsfi_raw.py) stores the
+    row with that time and only advances the station's latest-packet pointer
+    if the packet is newer than what is already stored."""
     conn = _ensure_initialized()
-    received_at = datetime.now(timezone.utc).isoformat()
+    if received_at is None:
+        received_at = datetime.now(timezone.utc).isoformat()
+        upsert_sql = _UPSERT_STATION_LIVE
+    else:
+        upsert_sql = _UPSERT_STATION_BACKFILL
     callsign = parsed["from"]
     with _db_lock:
         cur = conn.cursor()
@@ -155,16 +191,7 @@ def store_packet(parsed: dict[str, Any]) -> str:
                 ),
             )
             packet_id = cur.lastrowid
-            cur.execute(
-                """
-                INSERT INTO stations (callsign, first_heard_at, last_heard_at, last_packet_id)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(callsign) DO UPDATE SET
-                    last_heard_at = excluded.last_heard_at,
-                    last_packet_id = excluded.last_packet_id
-                """,
-                (callsign, received_at, received_at, packet_id),
-            )
+            cur.execute(upsert_sql, (callsign, received_at, received_at, packet_id))
             conn.commit()
         except Exception:
             conn.rollback()
@@ -234,6 +261,77 @@ def get_history(callsign: str, hours: int) -> list[dict[str, Any]]:
     result = [dict(zip(columns, row)) for row in rows]
     result.reverse()
     return result
+
+
+# Weather keys exposed by the per-station weather endpoint (aprslib's metric
+# names). Keys missing from a stored packet come back as None.
+WEATHER_FIELDS = (
+    "temperature",
+    "humidity",
+    "pressure",
+    "wind_direction",
+    "wind_speed",
+    "wind_gust",
+    "rain_1h",
+    "rain_24h",
+    "rain_since_midnight",
+    "luminosity",
+)
+
+
+def get_weather_history(callsign: str, hours: int) -> list[dict[str, Any]]:
+    """Weather points for `callsign` within the last `hours`, chronological
+    ascending. Same cutoff convention and newest-first cap + reverse as
+    `get_history()`. Each point has `received_at` plus every key in
+    `WEATHER_FIELDS` (None when absent or non-numeric)."""
+    import json
+    from datetime import timedelta
+
+    conn = _ensure_initialized()
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+    with _db_lock:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT received_at, weather_json
+            FROM packets
+            WHERE callsign = ?
+              AND weather_json IS NOT NULL
+              AND received_at >= ?
+            ORDER BY received_at DESC, id DESC
+            LIMIT 10000
+            """,
+            (callsign, cutoff),
+        )
+        rows = cur.fetchall()
+
+    result = []
+    for received_at, weather_json in reversed(rows):
+        weather = json.loads(weather_json)
+        point: dict[str, Any] = {"received_at": received_at}
+        for key in WEATHER_FIELDS:
+            value = weather.get(key)
+            numeric = isinstance(value, (int, float)) and not isinstance(value, bool)
+            point[key] = value if numeric else None
+        result.append(point)
+    return result
+
+
+def packet_exists(callsign: str, raw_packet: str, received_at: str) -> bool:
+    """True if an identical packet (same callsign, raw text and receipt time)
+    is already stored; used by the backfill importer to stay idempotent."""
+    conn = _ensure_initialized()
+    with _db_lock:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT 1 FROM packets
+            WHERE callsign = ? AND raw_packet = ? AND received_at = ?
+            LIMIT 1
+            """,
+            (callsign, raw_packet, received_at),
+        )
+        return cur.fetchone() is not None
 
 
 def upsert_telemetry_config(

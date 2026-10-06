@@ -4,8 +4,8 @@ On startup: capture `main_loop = asyncio.get_running_loop()`, initialize the
 DB, construct and configure the paho Client from mqtt_ingest, call
 `client.loop_start()`. On shutdown: `client.loop_stop()` + `client.disconnect()`.
 
-Routers are included under /api and /ws first; StaticFiles is mounted at "/"
-last, so /api/* and /ws/* take precedence.
+Routers are included under /api and /ws first, then the /weather/a/{callsign}
+page route; StaticFiles is mounted at "/" last, so all of those take precedence.
 """
 
 from __future__ import annotations
@@ -14,7 +14,10 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import db, mqtt_ingest
@@ -56,5 +59,15 @@ app = FastAPI(lifespan=lifespan)
 
 app.include_router(stations.router, prefix="/api")
 app.include_router(ws.router, prefix="/ws")
+
+_WEATHER_PAGE = Path(__file__).parent / "static" / "weather.html"
+
+
+@app.get("/weather/a/{callsign}", include_in_schema=False)
+def weather_page(callsign: str):
+    """Per-station weather charts page (same URL shape as aprs.fi). The page is
+    static; its JS reads the callsign from the URL path."""
+    return FileResponse(_WEATHER_PAGE, media_type="text/html")
+
 
 app.mount("/", StaticFiles(directory="app/static", html=True), name="static")

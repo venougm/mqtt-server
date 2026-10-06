@@ -1,0 +1,36 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "severity": "non-blocking",
+      "label": "Backfilled telemetry config overwrites current config",
+      "confidence": "confirmed",
+      "detail": "import_lines routes telemetry-message lines to upsert_telemetry_config, which unconditionally replaces stored EQNS/UNIT/PARM; an older metadata set in the paste wins over the newer live one, and re-runs count them as imported again. Skip telemetry-message lines in backfill, apply only when no config exists, or document it."
+    },
+    {
+      "severity": "non-blocking",
+      "label": "Live-plus-imported duplicates",
+      "confidence": "confirmed",
+      "detail": "Dedup key (callsign, raw, received_at) follows the spec, but a packet received live and also imported from aprs.fi is stored twice seconds apart. Add a README note to import only periods the server was offline."
+    },
+    {
+      "severity": "non-blocking",
+      "label": "Case-sensitive callsign URL",
+      "confidence": "likely",
+      "detail": "/weather/a/yg2ufh-10 shows the empty state because lookups are exact-match; upper-case the callsign in callsignFromPath()."
+    },
+    {
+      "severity": "non-blocking",
+      "label": "Misleading fetch-error text",
+      "confidence": "confirmed",
+      "detail": "weather.js says 'Retrying when the live connection reconnects' but with a healthy WebSocket nothing retries; add a timed retry or change the text."
+    },
+    {
+      "severity": "non-blocking",
+      "label": "Silent 10000-row truncation at 30 d",
+      "confidence": "confirmed in code, impact possible",
+      "detail": "Stations reporting more often than ~4.3 min lose the oldest part of the 30 d range with no indication; note truncation when data.length === 10000."
+    }
+  ],
+  "reviewDoc": "c:\\Users\\venou\\OneDrive - UGM 365\\2026\\aws academy\\code\\mqtt-server/.agents/tasks/weather-review.md"
+}

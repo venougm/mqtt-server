@@ -108,13 +108,17 @@ def _symbol(parsed: dict[str, Any]) -> str | None:
 def process_parsed_packet(
     parsed: dict[str, Any],
     broadcast_fn,
+    received_at: str | None = None,
 ) -> None:
     """Branches on telemetry-message vs. position/status, builds the normalized
     dict, stores it, and broadcasts it. `broadcast_fn(payload: dict)` is called
     exactly once per stored position packet; never called for telemetry-message
     (config) packets. This is the piece extracted out of `on_message` so it can
     be unit-tested (and used by the pipeline-injection test) without a live
-    MQTT client or asyncio event loop."""
+    MQTT client or asyncio event loop.
+
+    `received_at` is only set by the historical backfill importer; live
+    ingestion leaves it None so `db.store_packet()` stamps the current time."""
     if parsed.get("format") == "telemetry-message":
         owner = _owner_callsign(parsed)
         eqns = parsed.get("tEQNS")
@@ -145,7 +149,7 @@ def process_parsed_packet(
         "telemetry_json": telemetry_json,
         "weather_json": weather_json,
     }
-    received_at = db.store_packet(normalized)
+    received_at = db.store_packet(normalized, received_at=received_at)
 
     payload = {
         "type": "position",

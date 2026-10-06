@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weather charts — YG2UFH MQTT APRS</title>
+  <!-- Absolute asset paths: this page is served at /weather/a/<callsign>. -->
+  <link rel="stylesheet" href="/css/app.css?v=3" />
+  <link rel="stylesheet" href="/css/weather.css?v=1" />
+</head>
+<body class="weather-page">
+  <header id="header">
+    <span class="header-brand">YG2UFH MQTT APRS</span>
+    <a class="header-source" href="https://github.com/venougm/mqtt-server" target="_blank" rel="noopener">&#9733; Source</a>
+  </header>
+
+  <header class="wx-header">
+    <a class="wx-back" href="/">&larr; Back to map</a>
+    <h1 id="wx-callsign">Weather</h1>
+    <p id="wx-comment" class="wx-comment"></p>
+    <p id="wx-last-report" class="wx-last-report"></p>
+  </header>
+
+  <main class="wx-main">
+    <section class="wx-card" aria-labelledby="wx-current-title">
+      <h2 id="wx-current-title">Current conditions</h2>
+      <div id="wx-current"></div>
+    </section>
+
+    <section class="wx-card" aria-labelledby="wx-range-title">
+      <h2 id="wx-range-title">Range</h2>
+      <div class="wx-range" role="group" aria-label="Time range">
+        <button type="button" data-hours="24">24 h</button>
+        <button type="button" data-hours="48">48 h</button>
+        <button type="button" data-hours="168">7 d</button>
+        <button type="button" data-hours="720">30 d</button>
+      </div>
+      <p id="wx-status" class="wx-status" role="status" aria-live="polite"></p>
+      <table id="wx-stats" class="wx-stats" hidden>
+        <caption>Minimum, maximum and latest values in the selected range</caption>
+        <thead>
+          <tr>
+            <th scope="col">Field</th>
+            <th scope="col">Min</th>
+            <th scope="col">Max</th>
+            <th scope="col">Latest</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <div id="wx-charts" class="wx-charts"></div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"
+          integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG"
+          crossorigin="anonymous"></script>
+  <script src="/js/weather.js?v=1"></script>
+</body>
+</html>

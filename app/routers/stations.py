@@ -1,6 +1,7 @@
-"""REST endpoints: GET /api/stations, GET /api/stations/{callsign}/history.
+"""REST endpoints: GET /api/stations, GET /api/stations/{callsign}/history,
+GET /api/stations/{callsign}/weather.
 
-Both route handlers are declared as plain `def`, not `async def`: db.py's
+All route handlers are declared as plain `def`, not `async def`: db.py's
 sqlite3 connection is a blocking call, and the same asyncio event loop that
 dispatches these routes also dispatches WebSocket broadcasts via
 `asyncio.run_coroutine_threadsafe`. Declaring the handlers as plain `def` makes
@@ -17,7 +18,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app import db
 from app.config import get_settings
-from app.schemas import HistoryPointOut, StationOut
+from app.schemas import HistoryPointOut, StationOut, WeatherPointOut
 
 logger = logging.getLogger(__name__)
 
@@ -71,3 +72,17 @@ def get_station_history_route(
         raise HTTPException(status_code=500, detail="internal error")
 
     return [HistoryPointOut(**row) for row in rows]
+
+
+@router.get("/stations/{callsign}/weather", response_model=list[WeatherPointOut])
+def get_station_weather_route(
+    callsign: str,
+    hours: int = Query(default=48, ge=1, le=720),
+):
+    try:
+        rows = db.get_weather_history(callsign, hours)
+    except Exception as e:
+        logger.error("GET /api/stations/%s/weather failed: %s", callsign, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="internal error")
+
+    return [WeatherPointOut(**row) for row in rows]
