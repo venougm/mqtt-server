@@ -55,7 +55,8 @@ CREATE TABLE IF NOT EXISTS packets (
     altitude        REAL,
     comment         TEXT,
     symbol          TEXT,
-    telemetry_json  TEXT
+    telemetry_json  TEXT,
+    weather_json    TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_packets_callsign_time ON packets (callsign, received_at, id);
 
@@ -93,8 +94,18 @@ def init_db(db_path: str) -> None:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.executescript(_SCHEMA)
+    _migrate(conn)
     conn.commit()
     _conn = conn
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Idempotent in-place upgrades for DBs created by an older `_SCHEMA`
+    (`CREATE TABLE IF NOT EXISTS` never adds columns to an existing table)."""
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(packets)")}
+    if "weather_json" not in columns:
+        conn.execute("ALTER TABLE packets ADD COLUMN weather_json TEXT")
+        logger.info("db migration: added packets.weather_json column")
 
 
 def _ensure_initialized() -> sqlite3.Connection:
@@ -124,8 +135,9 @@ def store_packet(parsed: dict[str, Any]) -> str:
                 """
                 INSERT INTO packets
                     (callsign, received_at, raw_packet, latitude, longitude,
-                     course, speed, altitude, comment, symbol, telemetry_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     course, speed, altitude, comment, symbol, telemetry_json,
+                     weather_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     callsign,
@@ -139,6 +151,7 @@ def store_packet(parsed: dict[str, Any]) -> str:
                     parsed.get("comment"),
                     parsed.get("symbol"),
                     parsed.get("telemetry_json"),
+                    parsed.get("weather_json"),
                 ),
             )
             packet_id = cur.lastrowid
@@ -170,7 +183,8 @@ def get_stations() -> list[dict[str, Any]]:
             SELECT s.callsign,
                    s.last_heard_at AS received_at,
                    p.latitude, p.longitude, p.course, p.speed, p.altitude,
-                   p.comment, p.symbol, p.telemetry_json, p.raw_packet
+                   p.comment, p.symbol, p.telemetry_json, p.weather_json,
+                   p.raw_packet
             FROM stations s
             JOIN packets p ON p.id = s.last_packet_id
             ORDER BY s.callsign ASC

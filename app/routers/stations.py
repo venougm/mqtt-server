@@ -36,6 +36,8 @@ def get_stations_route():
     for row in rows:
         telemetry_json = row.get("telemetry_json")
         telemetry = json.loads(telemetry_json) if telemetry_json is not None else None
+        weather_json = row.get("weather_json")
+        weather = json.loads(weather_json) if weather_json is not None else None
         results.append(
             StationOut(
                 callsign=row["callsign"],
@@ -48,6 +50,7 @@ def get_stations_route():
                 comment=row.get("comment"),
                 symbol=row.get("symbol"),
                 telemetry=telemetry,
+                weather=weather,
             )
         )
     return results

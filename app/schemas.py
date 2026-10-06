@@ -24,6 +24,7 @@ class StationOut(BaseModel):
     comment: str | None = None
     symbol: str | None = None
     telemetry: dict[str, Any] | None = None
+    weather: dict[str, Any] | None = None
 
 
 class HistoryPointOut(BaseModel):

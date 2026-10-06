@@ -34,11 +34,31 @@
     "/r": { glyph: "\uD83D\uDCE1", color: "#8a2be2" }, // repeater
     "/[": { glyph: "\uD83D\uDEB6", color: "#2a7de1" }, // person
     "/Y": { glyph: "\u26F5", color: "#2a7de1" }, // yacht/boat
+    "\\_": { glyph: "\u26C5", color: "#1e6fd9" }, // weather station (alt table)
+    // Overlay symbols: table char is the overlay (0-9/A-Z) drawn on top of
+    // the alternate-table symbol, rendered like aprs.fi as the overlay
+    // letter on a colored circle.
+    "L_": { overlay: "L", color: "#1e6fd9" }, // LoRa iGate weather station
   };
   var FALLBACK_ICON = { glyph: null, color: "#2a7de1" };
+  // Circle color for generic overlay symbols, keyed by the base symbol code.
+  var OVERLAY_COLORS = { "_": "#1e6fd9", "&": "#2a2a2a", "#": "#8a2be2" };
+
+  function overlayIconDef(symbol) {
+    if (!symbol || symbol.length !== 2 || !/^[0-9A-Z]$/.test(symbol.charAt(0))) return null;
+    return { overlay: symbol.charAt(0), color: OVERLAY_COLORS[symbol.charAt(1)] || "#2a7de1" };
+  }
 
   function iconFor(symbol) {
-    var def = (symbol && ICON_TABLE[symbol]) || FALLBACK_ICON;
+    var def = (symbol && ICON_TABLE[symbol]) || overlayIconDef(symbol) || FALLBACK_ICON;
+    if (def.overlay) {
+      // Built via DOM + textContent so the overlay char is never parsed as HTML.
+      var el = document.createElement("div");
+      el.className = "aprs-overlay-icon";
+      el.style.background = def.color;
+      el.textContent = def.overlay;
+      return L.divIcon({ className: "aprs-marker", html: el, iconSize: [24, 24], iconAnchor: [12, 12] });
+    }
     var inner = def.glyph
       ? '<div style="background:' + def.color + ';width:20px;height:20px;border-radius:50%;border:2px solid white;box-shadow:0 0 2px rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1;">' + def.glyph + "</div>"
       : '<div style="background:' + def.color + ';width:14px;height:14px;border-radius:50%;border:2px solid white;box-shadow:0 0 2px rgba(0,0,0,0.6);"></div>';
@@ -76,6 +96,55 @@
     return rows.join("");
   }
 
+  // ---- Weather rendering ----------------------------------------------------
+  // aprslib already converts weather to metric (°C, mbar, m/s, mm). Known keys
+  // get a label/unit/precision; unknown keys fall back to "key: value".
+  var WEATHER_FIELDS = [
+    { key: "temperature", label: "Temperature", unit: "\u00b0C", digits: 1 },
+    { key: "humidity", label: "Humidity", unit: "%", digits: 0 },
+    { key: "pressure", label: "Pressure", unit: "mbar", digits: 1 },
+    { key: "wind_direction", label: "Wind direction", unit: "\u00b0", digits: 0 },
+    { key: "wind_speed", label: "Wind speed", unit: "m/s", digits: 1 },
+    { key: "wind_gust", label: "Wind gust", unit: "m/s", digits: 1 },
+    { key: "rain_1h", label: "Rain 1h", unit: "mm", digits: 1 },
+    { key: "rain_24h", label: "Rain 24h", unit: "mm", digits: 1 },
+    { key: "rain_since_midnight", label: "Rain since midnight", unit: "mm", digits: 1 },
+    { key: "luminosity", label: "Luminosity", unit: "W/m\u00b2", digits: 0 },
+  ];
+
+  function formatWeatherValue(value, digits) {
+    return typeof value === "number" ? value.toFixed(digits) : String(value);
+  }
+
+  function buildWeatherSection(weather) {
+    var section = document.createElement("div");
+    section.className = "popup-weather";
+
+    var title = document.createElement("div");
+    title.className = "popup-section-title";
+    title.textContent = "Weather";
+    section.appendChild(title);
+
+    var parts = [];
+    var known = {};
+    WEATHER_FIELDS.forEach(function (field) {
+      known[field.key] = true;
+      if (!Object.prototype.hasOwnProperty.call(weather, field.key)) return;
+      var value = weather[field.key];
+      if (value === null || value === undefined) return;
+      parts.push(field.label + " " + formatWeatherValue(value, field.digits) + " " + field.unit);
+    });
+    Object.keys(weather).forEach(function (key) {
+      if (known[key] || weather[key] === null || weather[key] === undefined) return;
+      parts.push(key + ": " + String(weather[key]));
+    });
+
+    var line = document.createElement("div");
+    line.textContent = parts.length > 0 ? parts.join(" \u00b7 ") : "\u2014";
+    section.appendChild(line);
+    return section;
+  }
+
   function escapeHtml(str) {
     var div = document.createElement("div");
     div.textContent = str;
@@ -89,6 +158,13 @@
     var header = document.createElement("div");
     header.innerHTML = "<strong>" + escapeHtml(data.callsign) + "</strong>";
     container.appendChild(header);
+
+    if (data.comment) {
+      var commentDiv = document.createElement("div");
+      commentDiv.className = "popup-comment";
+      commentDiv.textContent = data.comment;
+      container.appendChild(commentDiv);
+    }
 
     var lastHeard = document.createElement("div");
     lastHeard.textContent = "Last heard: " + new Date(data.received_at).toLocaleString();
@@ -111,10 +187,8 @@
       container.appendChild(extrasDiv);
     }
 
-    if (data.comment) {
-      var commentDiv = document.createElement("div");
-      commentDiv.textContent = "Comment: " + data.comment;
-      container.appendChild(commentDiv);
+    if (data.weather) {
+      container.appendChild(buildWeatherSection(data.weather));
     }
 
     var telemetryDiv = document.createElement("div");

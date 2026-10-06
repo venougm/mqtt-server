@@ -127,6 +127,11 @@ def process_parsed_packet(
         return
 
     telemetry_json = _build_telemetry_json(parsed)
+    # aprslib returns weather already unit-converted (temperature in °C,
+    # pressure in mbar, ...) as a dict; stored generically so any key it
+    # emits (wind/rain/luminosity) survives without a schema change.
+    weather = parsed.get("weather")
+    weather_json = json.dumps(weather) if isinstance(weather, dict) and weather else None
     normalized = {
         "from": parsed["from"],
         "raw_packet": parsed.get("raw"),
@@ -138,6 +143,7 @@ def process_parsed_packet(
         "comment": parsed.get("comment"),
         "symbol": _symbol(parsed),
         "telemetry_json": telemetry_json,
+        "weather_json": weather_json,
     }
     received_at = db.store_packet(normalized)
 
@@ -153,6 +159,7 @@ def process_parsed_packet(
         "comment": normalized["comment"],
         "symbol": normalized["symbol"],
         "telemetry": json.loads(telemetry_json) if telemetry_json is not None else None,
+        "weather": json.loads(weather_json) if weather_json is not None else None,
         "raw_packet": normalized["raw_packet"],
     }
     broadcast_fn(payload)

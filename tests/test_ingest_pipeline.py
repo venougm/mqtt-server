@@ -19,7 +19,8 @@ FIXTURES_DIR = Path(__file__).parent / "sample_packets"
 
 EXPECTED_WS_KEYS = {
     "type", "callsign", "received_at", "latitude", "longitude",
-    "course", "speed", "altitude", "comment", "symbol", "telemetry", "raw_packet",
+    "course", "speed", "altitude", "comment", "symbol", "telemetry", "weather",
+    "raw_packet",
 }
 
 
@@ -51,6 +52,7 @@ def test_valid_position_lands_in_db_and_broadcasts(fresh_db):
     assert payload["type"] == "position"
     assert payload["callsign"] == "YB1ABC-9"
     assert payload["telemetry"] is None  # no telemetry block in this fixture
+    assert payload["weather"] is None  # no weather block in this fixture
 
     stations = fresh_db.get_stations()
     assert len(stations) == 1

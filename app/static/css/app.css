@@ -84,6 +84,34 @@ html, body {
   gap: 8px;
 }
 
+.aprs-overlay-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.6);
+  color: white;
+  font: bold 12px/20px system-ui, sans-serif;
+  text-align: center;
+}
+
+.popup-comment {
+  font-weight: 600;
+  color: #1a5c1a;
+  margin: 2px 0 4px;
+}
+
+.popup-weather {
+  margin: 6px 0;
+  padding: 4px 6px;
+  background: #eef5ff;
+  border-radius: 4px;
+}
+
+.popup-section-title {
+  font-weight: 600;
+}
+
 .popup-raw-packet {
   max-width: 280px;
   white-space: pre-wrap;

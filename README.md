@@ -12,6 +12,13 @@ answers "what do we already know," and a WebSocket pushes "what's new right
 now." The frontend is plain HTML/CSS/JS with Leaflet.js and OpenStreetMap
 tiles -- no build toolchain, no API key.
 
+APRS weather (WX) reports are supported: whatever `aprslib` parses into
+`weather` (temperature °C, humidity %, pressure mbar, wind, rain, luminosity)
+is stored as JSON in `packets.weather_json`, returned as `weather` by
+`GET /api/stations` and the WebSocket feed, and shown in a "Weather" section
+of the station popup. Existing databases gain the `weather_json` column
+automatically on startup.
+
 ## Setup
 
 Install Python 3.11+ (on Windows, if you don't already have a working
@@ -73,6 +80,9 @@ those steps are documentation only and are not executed by this build.
 - Telemetry for a station with no `EQNS`/`UNIT`/`PARM` config received yet is
   shown as unlabeled raw values until a config message arrives (no
   retroactive relabeling of already-stored packets).
+- Weather is shown only for a station's latest packet; there is no weather
+  history chart. Only a small set of APRS symbols have dedicated icons
+  (overlay symbols such as `L_` render as the overlay letter on a circle).
 - A station's track polyline reflects the lookback window at toggle time, not
   continuously refreshed.
 - The Direwolf -> MQTT bridge (for the Raspberry Pi + Direwolf hardware path)
