@@ -18,11 +18,7 @@ laptop ke VM:
 git clone <url-repo-kamu> /opt/aprs-web
 ```
 
-**Opsi B — scp langsung dari laptop Windows** (jalankan ini di laptop, lewat
-PowerShell/WSL, ganti `user@vm-ip`):
-```powershell
-scp -r "c:\Users\venou\OneDrive - UGM 365\2026\aws academy\code\mqtt-server" user@vm-ip:/tmp/mqtt-server
-```
+
 lalu di VM:
 ```bash
 sudo mv /tmp/mqtt-server /opt/aprs-web
