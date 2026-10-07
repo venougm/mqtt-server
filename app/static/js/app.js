@@ -5,6 +5,14 @@
   // ---- Map init -----------------------------------------------------------
   var map = L.map("map").setView([-7.70776, 110.41006], 10); // YG2UFH-10 iGate, Yogyakarta
 
+  // On mobile the map container is re-sized by CSS media queries (stacked
+  // layout) and on device rotation; tell Leaflet to recompute its size so
+  // tiles fill the container instead of rendering grey/clipped.
+  function refreshMapSize() { map.invalidateSize(); }
+  window.addEventListener("resize", refreshMapSize);
+  window.addEventListener("orientationchange", refreshMapSize);
+  setTimeout(refreshMapSize, 300);
+
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
