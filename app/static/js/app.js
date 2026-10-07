@@ -5,18 +5,25 @@
   // ---- Map init -----------------------------------------------------------
   var map = L.map("map").setView([-7.70776, 110.41006], 10); // YG2UFH-10 iGate, Yogyakarta
 
-  // On mobile the map container is re-sized by CSS media queries (stacked
-  // layout) and on device rotation; tell Leaflet to recompute its size so
-  // tiles fill the container instead of rendering grey/clipped.
+  // On first load the map container often doesn't have its final size yet
+  // (especially in the stacked mobile layout), so Leaflet renders a blank /
+  // grey map until something forces a recompute. Call invalidateSize() at
+  // several points so the map fills its container without needing a user
+  // interaction. Also handle resize and device rotation.
   function refreshMapSize() { map.invalidateSize(); }
   window.addEventListener("resize", refreshMapSize);
   window.addEventListener("orientationchange", refreshMapSize);
-  setTimeout(refreshMapSize, 300);
+  window.addEventListener("load", refreshMapSize);
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   }).addTo(map);
+
+  // Nudge the size recompute a few times early on, covering slow layout/paint
+  // on mobile and slow first tile fetch on poor connections.
+  refreshMapSize();
+  [100, 300, 600, 1200].forEach(function (ms) { setTimeout(refreshMapSize, ms); });
 
   // state: Map<callsign, {marker, polyline, visible, lastData}>
   var stations = new Map();
