@@ -18,7 +18,12 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app import db
 from app.config import get_settings
-from app.schemas import HistoryPointOut, StationOut, WeatherPointOut
+from app.schemas import (
+    HistoryPointOut,
+    StationOut,
+    TelemetryHistoryOut,
+    WeatherPointOut,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -86,3 +91,17 @@ def get_station_weather_route(
         raise HTTPException(status_code=500, detail="internal error")
 
     return [WeatherPointOut(**row) for row in rows]
+
+
+@router.get("/stations/{callsign}/telemetry", response_model=TelemetryHistoryOut)
+def get_station_telemetry_route(
+    callsign: str,
+    hours: int = Query(default=48, ge=1, le=720),
+):
+    try:
+        result = db.get_telemetry_history(callsign, hours)
+    except Exception as e:
+        logger.error("GET /api/stations/%s/telemetry failed: %s", callsign, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="internal error")
+
+    return TelemetryHistoryOut(**result)

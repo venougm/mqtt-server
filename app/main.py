@@ -61,6 +61,7 @@ app.include_router(stations.router, prefix="/api")
 app.include_router(ws.router, prefix="/ws")
 
 _WEATHER_PAGE = Path(__file__).parent / "static" / "weather.html"
+_TELEMETRY_PAGE = Path(__file__).parent / "static" / "telemetry.html"
 
 
 @app.get("/weather/a/{callsign}", include_in_schema=False)
@@ -68,6 +69,13 @@ def weather_page(callsign: str):
     """Per-station weather charts page (same URL shape as aprs.fi). The page is
     static; its JS reads the callsign from the URL path."""
     return FileResponse(_WEATHER_PAGE, media_type="text/html")
+
+
+@app.get("/telemetry/a/{callsign}", include_in_schema=False)
+def telemetry_page(callsign: str):
+    """Per-station telemetry charts page (same URL shape as the weather page).
+    The page is static; its JS reads the callsign from the URL path."""
+    return FileResponse(_TELEMETRY_PAGE, media_type="text/html")
 
 
 app.mount("/", StaticFiles(directory="app/static", html=True), name="static")

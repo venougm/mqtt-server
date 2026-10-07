@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Weather charts — YG2UFH MQTT APRS</title>
-  <!-- Absolute asset paths: this page is served at /weather/a/<callsign>. -->
+  <title>Telemetry charts — YG2UFH MQTT APRS</title>
+  <!-- Absolute asset paths: this page is served at /telemetry/a/<callsign>. -->
   <link rel="stylesheet" href="/css/app.css?v=4" />
   <link rel="stylesheet" href="/css/weather.css?v=1" />
 </head>
@@ -16,31 +16,31 @@
 
   <header class="wx-header">
     <a class="wx-back" href="/">&larr; Back to map</a>
-    <h1 id="wx-callsign">Weather</h1>
-    <p id="wx-comment" class="wx-comment"></p>
-    <p id="wx-last-report" class="wx-last-report"></p>
+    <h1 id="tlm-callsign">Telemetry</h1>
+    <p id="tlm-comment" class="wx-comment"></p>
+    <p id="tlm-last-report" class="wx-last-report"></p>
   </header>
 
   <main class="wx-main">
-    <section class="wx-card" aria-labelledby="wx-current-title">
-      <h2 id="wx-current-title">Current conditions</h2>
-      <div id="wx-current"></div>
+    <section class="wx-card" aria-labelledby="tlm-current-title">
+      <h2 id="tlm-current-title">Latest readings</h2>
+      <div id="tlm-current"></div>
     </section>
 
-    <section class="wx-card" aria-labelledby="wx-range-title">
-      <h2 id="wx-range-title">Range</h2>
+    <section class="wx-card" aria-labelledby="tlm-range-title">
+      <h2 id="tlm-range-title">Range</h2>
       <div class="wx-range" role="group" aria-label="Time range">
         <button type="button" data-hours="24">24 h</button>
         <button type="button" data-hours="48">48 h</button>
         <button type="button" data-hours="168">7 d</button>
         <button type="button" data-hours="720">30 d</button>
       </div>
-      <p id="wx-status" class="wx-status" role="status" aria-live="polite"></p>
-      <table id="wx-stats" class="wx-stats" hidden>
+      <p id="tlm-status" class="wx-status" role="status" aria-live="polite"></p>
+      <table id="tlm-stats" class="wx-stats" hidden>
         <caption>Minimum, maximum and latest values in the selected range</caption>
         <thead>
           <tr>
-            <th scope="col">Field</th>
+            <th scope="col">Channel</th>
             <th scope="col">Min</th>
             <th scope="col">Max</th>
             <th scope="col">Latest</th>
@@ -50,12 +50,12 @@
       </table>
     </section>
 
-    <div id="wx-charts" class="wx-charts"></div>
+    <div id="tlm-charts" class="wx-charts"></div>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"
           integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG"
           crossorigin="anonymous"></script>
-  <script src="/js/weather.js?v=1"></script>
+  <script src="/js/telemetry.js?v=1"></script>
 </body>
 </html>

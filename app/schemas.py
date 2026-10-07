@@ -51,3 +51,32 @@ class HistoryPointOut(BaseModel):
     speed: float | None = None
     course: float | None = None
     altitude: float | None = None
+
+
+class TelemetryChannelOut(BaseModel):
+    """One analog telemetry channel's label/unit, in channel order (0-4).
+
+    Names/units come from the station's EQNS/UNIT/PARM config when available,
+    else generic Analog1..Analog5 with an empty unit."""
+
+    name: str
+    unit: str = ""
+
+
+class TelemetryPointOut(BaseModel):
+    """One telemetry sample. `channels` maps each channel name (matching
+    `TelemetryHistoryOut.channels`) to its real value (EQNS-applied when a
+    config exists, raw otherwise), null when that channel is absent/non-numeric.
+    `raw_vals` is the stored raw analog sequence when known, else null."""
+
+    received_at: str
+    channels: dict[str, float | None]
+    raw_vals: list[Any] | None = None
+
+
+class TelemetryHistoryOut(BaseModel):
+    """Per-station analog telemetry series plus the channel label/unit metadata
+    the frontend uses to title charts and axes."""
+
+    channels: list[TelemetryChannelOut]
+    points: list[TelemetryPointOut]

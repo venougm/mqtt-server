@@ -188,6 +188,14 @@
     telemetryDiv.innerHTML = renderTelemetry(data.telemetry);
     container.appendChild(telemetryDiv);
 
+    if (data.telemetry !== null && data.telemetry !== undefined) {
+      var tlmLink = document.createElement("a");
+      tlmLink.className = "popup-weather-link";
+      tlmLink.href = "/telemetry/a/" + encodeURIComponent(data.callsign);
+      tlmLink.textContent = "Show telemetry charts";
+      container.appendChild(tlmLink);
+    }
+
     var toggleLabel = document.createElement("label");
     var toggleCheckbox = document.createElement("input");
     toggleCheckbox.type = "checkbox";

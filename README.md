@@ -62,6 +62,21 @@ last 24 h / 48 h / 7 d / 30 d, and appends new reports live. Chart.js 4.4.1 is
 loaded from the jsDelivr CDN. The data comes from
 `GET /api/stations/{callsign}/weather?hours=N` (1-720, default 48).
 
+## Telemetry charts
+
+Each station that reports APRS analog telemetry has a charts page at
+`/telemetry/a/<callsign>` (e.g. `http://localhost:8000/telemetry/a/VN2EWS-1`),
+linked from the "Show telemetry charts" link in the map popup. It mirrors the
+weather page: latest readings, min/max/latest per channel, and one line chart
+per analog channel (e.g. a Raspberry Pi weather station's CPU temperature,
+input voltage, CPU load, memory used, uptime) for the last 24 h / 48 h / 7 d /
+30 d, appending new samples live. Channel names and units come from the
+station's EQNS/UNIT/PARM metadata; stations with no calibration yet fall back
+to generic `Analog1..Analog5` with raw values. The data comes from
+`GET /api/stations/{callsign}/telemetry?hours=N` (1-720, default 48), which
+applies the station's current EQNS so late-arriving calibration also labels
+already-stored history.
+
 ### Importing history from aprs.fi
 
 Charts only cover packets this server has received. To backfill your own

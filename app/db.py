@@ -317,6 +317,153 @@ def get_weather_history(callsign: str, hours: int) -> list[dict[str, Any]]:
     return result
 
 
+# Generic analog-channel labels used when a station has no usable telemetry
+# config yet (same fallback philosophy as the map popup's raw_vals display).
+TELEMETRY_FALLBACK_NAMES = ("Analog1", "Analog2", "Analog3", "Analog4", "Analog5")
+
+
+def get_telemetry_history(callsign: str, hours: int) -> dict[str, Any]:
+    """Analog telemetry series for `callsign` within the last `hours`,
+    chronological ascending. Same cutoff convention and newest-first cap +
+    reverse as `get_history()`/`get_weather_history()`.
+
+    Returns a dict with:
+      - "channels": ordered list of {"name", "unit"} describing the 5 analog
+        channels (names/units from the station's EQNS/UNIT/PARM config when
+        available, generic Analog1..Analog5 with empty units otherwise).
+      - "points": list of {"received_at", "channels": {name: value|None},
+        "raw_vals": [..]} chronological ascending.
+
+    A packet's stored `telemetry_json` is one of two shapes (see
+    mqtt_ingest._build_telemetry_json): the named shape
+    `{name: {"value", "unit"}}` written when a usable config existed at ingest
+    time, or the raw fallback `{"raw_seq", "raw_vals"}` written otherwise. This
+    function normalizes both. For raw-shape rows it applies the station's
+    CURRENT telemetry config (via apply_equations) when one is usable now, so
+    EQNS/UNIT/PARM that arrived after the data was stored still label the
+    history. The channel-name set is taken from the current config when usable,
+    else from any named-shape rows found, else the generic fallback."""
+    import json
+    from datetime import timedelta
+
+    from app.telemetry import apply_equations
+
+    conn = _ensure_initialized()
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+    with _db_lock:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT received_at, telemetry_json
+            FROM packets
+            WHERE callsign = ?
+              AND telemetry_json IS NOT NULL
+              AND received_at >= ?
+            ORDER BY received_at DESC, id DESC
+            LIMIT 10000
+            """,
+            (callsign, cutoff),
+        )
+        rows = cur.fetchall()
+
+    config = get_telemetry_config(callsign)
+    usable = config is not None and _telemetry_config_usable(config)
+
+    # First pass: parse each stored packet into a positional analog list
+    # (index 0-4) plus an optional per-name dict from any named-shape row. The
+    # final channel labels are decided after the scan so every point can be
+    # keyed by the same ordered name set.
+    parsed_rows: list[dict[str, Any]] = []
+    named_labels: list[str] | None = None
+    named_units: list[str] | None = None
+    for received_at, telemetry_json in reversed(rows):
+        try:
+            telemetry = json.loads(telemetry_json)
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(telemetry, dict):
+            continue
+
+        if "raw_vals" in telemetry:
+            raw_vals = telemetry.get("raw_vals")
+            vals = raw_vals if isinstance(raw_vals, list) else None
+            parsed_rows.append({"received_at": received_at, "raw_vals": vals, "named": None})
+        else:
+            # Named shape {name: {"value", "unit"}} written at ingest time.
+            if named_labels is None:
+                keys = [k for k in telemetry.keys()][:5]
+                if keys:
+                    named_labels = keys
+                    named_units = [
+                        str(telemetry[k].get("unit", "")) if isinstance(telemetry.get(k), dict) else ""
+                        for k in keys
+                    ]
+            parsed_rows.append({"received_at": received_at, "raw_vals": None, "named": telemetry})
+
+    # Decide the ordered channel labels/units. A usable current config is
+    # authoritative (it also lets us apply EQNS to raw-shape rows below);
+    # otherwise use labels discovered from a named-shape row; otherwise the
+    # generic Analog1..Analog5 fallback.
+    if usable:
+        names = [str(n) for n in config["parm_json"][:5]]
+        units = [str(u) for u in config["unit_json"][:5]]
+    elif named_labels is not None:
+        names = named_labels + list(TELEMETRY_FALLBACK_NAMES[len(named_labels):])
+        units = (named_units or []) + ["" for _ in range(5 - len(named_labels))]
+    else:
+        names = list(TELEMETRY_FALLBACK_NAMES)
+        units = ["" for _ in range(5)]
+    # Guarantee exactly 5 labels/units even if config arrays were short.
+    names = (names + list(TELEMETRY_FALLBACK_NAMES))[:5]
+    units = (units + ["" for _ in range(5)])[:5]
+
+    points: list[dict[str, Any]] = []
+    for row in parsed_rows:
+        channel_values: dict[str, Any] = {name: None for name in names}
+        raw_vals = row["raw_vals"]
+        if raw_vals is not None:
+            if usable and len(raw_vals) >= 5:
+                named = apply_equations(raw_vals, config)
+                for i, name in enumerate(names):
+                    entry = named.get(config["parm_json"][i]) if i < len(config["parm_json"]) else None
+                    channel_values[name] = entry["value"] if entry else None
+            else:
+                for i, name in enumerate(names):
+                    channel_values[name] = raw_vals[i] if i < len(raw_vals) else None
+        elif row["named"] is not None:
+            for name in names:
+                entry = row["named"].get(name)
+                if isinstance(entry, dict):
+                    value = entry.get("value")
+                    channel_values[name] = value if _is_numeric(value) else None
+        points.append(
+            {
+                "received_at": row["received_at"],
+                "channels": channel_values,
+                "raw_vals": raw_vals,
+            }
+        )
+
+    return {
+        "channels": [{"name": names[i], "unit": units[i]} for i in range(5)],
+        "points": points,
+    }
+
+
+def _telemetry_config_usable(config: dict[str, Any]) -> bool:
+    """Mirror of mqtt_ingest._config_usable: all three of EQNS/UNIT/PARM must
+    carry at least 5 analog-channel entries before apply_equations() is safe."""
+    return (
+        len(config.get("eqns_json") or []) >= 5
+        and len(config.get("unit_json") or []) >= 5
+        and len(config.get("parm_json") or []) >= 5
+    )
+
+
+def _is_numeric(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
 def packet_exists(callsign: str, raw_packet: str, received_at: str) -> bool:
     """True if an identical packet (same callsign, raw text and receipt time)
     is already stored; used by the backfill importer to stay idempotent."""
