@@ -1,0 +1,45 @@
+# systemd unit template for the Raspberry Pi APRS weather + telemetry publisher.
+#
+# Install:
+#   sudo cp aws-publisher.service /etc/systemd/system/aws-publisher.service
+#   sudo nano /etc/systemd/system/aws-publisher.service   # edit User, paths, env
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now aws-publisher.service
+#   journalctl -u aws-publisher -f                        # follow the logs
+#
+# Secrets: prefer putting MQTT_PASSWORD etc. in the EnvironmentFile below
+# (chmod 600, owned by the service user) rather than inline Environment= lines.
+
+[Unit]
+Description=Raspberry Pi APRS weather + telemetry publisher (Veno AWS)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# Run as the user that owns the venv and has I2C access (member of group i2c).
+User=veno
+Group=i2c
+
+WorkingDirectory=/home/veno/rpi-station
+
+# EnvironmentFile holds MQTT_BROKER_HOST / MQTT_USERNAME / MQTT_PASSWORD / etc.
+# Create /home/veno/rpi-station/aws-publisher.env with lines like:
+#   MQTT_BROKER_HOST=your.vps.host
+#   MQTT_USERNAME=kopi
+#   MQTT_PASSWORD=your-broker-password
+#   MQTT_TOPIC_PREFIX=aprs-igate
+#   CALLSIGN=VN2EWS-1
+#   LAT=-7.767
+#   LON=110.375
+EnvironmentFile=/home/veno/rpi-station/aws-publisher.env
+
+# All settings can also be passed as flags; env vars above take the same values.
+ExecStart=/home/veno/rpi-station/.venv/bin/python /home/veno/rpi-station/aws_publisher.py --verbose
+
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,13 @@
+# Dependencies for the Raspberry Pi weather + telemetry publisher.
+#
+# Install these ON THE RASPBERRY PI (inside a venv). The APRS-encoding logic in
+# aws_publisher.py is pure Python stdlib and needs none of these -- that is why
+# the round-trip tests on the dev box import the module without any of them.
+#
+# paho-mqtt 1.6.1 matches the version the backend uses in this repo.
+paho-mqtt==1.6.1
+
+# BME280 over I2C (the documented default). Pulls in Adafruit Blinka
+# (board/busio) for Raspberry Pi I2C. These are Pi-only; they are NOT required
+# to run the aprslib round-trip tests.
+adafruit-circuitpython-bme280
