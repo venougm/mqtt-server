@@ -286,11 +286,11 @@
       entry.marker.bindPopup(function () {
         return buildPopupContent(entry.lastData);
       });
-
-      if (!mapCentered) {
-        map.setView(latlng, 10);
-        mapCentered = true;
-      }
+      // Note: the map intentionally stays at its default Yogyakarta view on
+      // load; it is NOT auto-centered on the first incoming station (which
+      // used to make it jump to whichever station arrived first, including
+      // test packets at lat/lon 0,0). The view only moves when the user
+      // clicks a station in the list or uses the callsign search.
     }
 
     renderSidebar();
